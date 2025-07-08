@@ -225,7 +225,8 @@ plot_pop1
 ######Individual Trajectory #############
 #########################################
 
-## read original data
+#read original data
+##read
 ```{r}
 original <- read.csv("demo.csv") 
 colnames(original)[colnames(original) == "Mice.Number"] <- "Code"
