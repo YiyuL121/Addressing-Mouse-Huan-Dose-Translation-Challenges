@@ -121,7 +121,7 @@ sample_ab <- function(pop, num, vac){
 }
 ```
 
-### Function to store output in column form ###
+############# Function to store output in column form ##############
 ```{r}
 run_ODE_control <- function(pars){
   total_AL <- matrix(NA,nrow=length(seq(Tmin,Tmax,step_size)),ncol=n)
@@ -133,7 +133,7 @@ run_ODE_control <- function(pars){
 }
 ```
 
-###### Introduce the covariate of DOSE for different mice groups ########
+############## Introduce the covariate of DOSE for different mice groups ################
 ```{r}
 df_cov <- data.frame(Vaccine = c( "0.05ug Pfizer", 
                                   "0.1ug Pfizer", 
