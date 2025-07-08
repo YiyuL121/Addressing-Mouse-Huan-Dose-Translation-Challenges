@@ -12,6 +12,5 @@ This repository contains supporting files for the results reported in "Estimatin
 ### Data 
   - Mice : population parameters, estimated individual parameters, simulated individual parameters
   - human : population parameters, estimated individual parameters, simulated individual parameters
-
-  - 
+  - Original data: both for mice and for human (Not available here, replaced by "demo")
 ### Instruction for use
