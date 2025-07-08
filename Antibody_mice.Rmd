@@ -1,8 +1,9 @@
 ## Antibody Modelling Function for mice
 ## Create Fig 4-A
 
+
+######### required packages ############
 ```{r}
-# required packages
 required_packages <- c('dplyr', 'deSolve', 'ggplot2','purrr')
 
 install_and_load <- function(packages) {
@@ -18,18 +19,21 @@ install_and_load <- function(packages) {
 
 install_and_load(required_packages)
 ```
+
+########### read parameter ############
 ```{r}
-## Read parameters
 pop <- read.csv("populationParameters.txt",  row.names = 1)
 ```
+
+######## Set time range ###########
 ```{r}
-## Set time range
 Tmin <- 0
 Tmax <- 180 
 step_size <- 0.005
 times<-c(seq(Tmin,Tmax,step_size))
 ```
 
+######### Simulate population trajectory ############
 ```{r}
 ## ODE Function to model population antibody dynamics
 ode_ab_pop <- function(pars) {
@@ -116,3 +120,219 @@ sample_ab <- function(pop, num, vac){
   return(pars)
 }
 ```
+
+### Function to store output in column form
+```{r}
+run_ODE_control <- function(pars){
+  total_AL <- matrix(NA,nrow=length(seq(Tmin,Tmax,step_size)),ncol=n)
+  for(i in 1:n){
+    out <- ode_ab_pop(pars[i, ])
+  total_AL[,i] <- out$A
+  }
+  return(total_AL)
+}
+```
+
+###### Introduce the covariate of DOSE for different mice groups ########
+```{r}
+df_cov <- data.frame(Vaccine = c( "0.05ug Pfizer", 
+                                  "0.1ug Pfizer", 
+                                  "0.2ug Pfizer", 
+                                  "0.5ug Pfizer",
+                                  "1ug Pfizer")
+                 )
+
+df_cov
+```
+############## Simulate the trajectory ####################
+```{r}
+n = 1000  # Can change to 100, or change stepsize to a larger value to save time
+
+Fit <- list()
+pb <- txtProgressBar(min = 0, max = 2, style = 3)
+for (g in 1:5){
+  vac <- df_cov$Vaccine[g]
+  par <- c(k1=exp(log(pop["k1_pop", "value"])+(vac=='0.1ug Pfizer')*beta_k1_0_1ug+(vac=='0.2ug Pfizer')*beta_k1_0_2ug+(vac=='0.5ug Pfizer')*beta_k1_0_5ug+(vac=='1ug Pfizer')*beta_k1_1ug),
+           k2=exp(log(pop["k2_pop", "value"])+(vac=='0.1ug Pfizer')*beta_k2_0_1ug+(vac=='0.2ug Pfizer')*beta_k2_0_2ug+(vac=='0.5ug Pfizer')*beta_k2_0_5ug+(vac=='1ug Pfizer')*beta_k2_1ug),
+           A0=pop["A0_pop", "value"],
+           C = pop["peak_pop", "value"])
+  
+  best_fit <- ode_ab_pop(par)
+  
+  pars <- sample_ab(pop, n, vac)
+  total_VL <- run_ODE_control(pars)
+  
+  Min90  <- apply(total_VL,1,function(x){quantile(x,0.025,na.rm=T)})
+  Max90  <- apply(total_VL,1,function(x){quantile(x,0.975,na.rm=T)})
+  Min50  <- apply(total_VL,1,function(x){quantile(x,0.25,na.rm=T)})
+  Max50  <- apply(total_VL,1,function(x){quantile(x,0.75,na.rm=T)})
+  Mean50  <- apply(total_VL,1,function(x){quantile(x,0.5,na.rm=T)})
+  index <- which(Mean50 < -2)[1]
+  # Check if an index was found, and then replace the value
+  if (!is.na(index)) {
+    Mean50[index] <- -2
+  }  
+  
+  Fit[[g]] <- cbind(best_fit,Min90,Max90,Min50,Max50,Mean50,vac)
+  Fit[[g]] <- data.frame(Fit[[g]])
+  colnames(Fit[[g]]) <- c("time","best_fit","Min95","Max95","Min50","Max50","Mean50","Group")
+  setTxtProgressBar(pb, g)
+}
+close(pb)
+combine_pop <- map_df(Fit, ~as.data.frame(.x))
+
+```
+############################
+##### Figure 4-A ###########
+############################
+
+```{r}
+# Create the plot
+plot_pop1 <- ggplot(combine_pop, aes(x = time, y = best_fit)) +
+  geom_ribbon(aes(ymin = Min95, ymax = Max95, group = Group, fill = Group), alpha = 0.1) +
+  geom_ribbon(aes(ymin = Min50, ymax = Max50,group = Group, fill = Group), alpha = 0.15) +
+  geom_line(aes(group = Group, color = Group),linewidth = 1.5) +
+  labs(
+    #title = "Visualization of Antibody Response",
+   x = "days since first vaccination",
+       y = "anti-spike IgG (%binding)",
+    color = "Group",
+    fill = "Group"
+  ) +
+   theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='bottom',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+ theme(
+ # plot.title = element_text(size = 16),        
+  axis.title.x = element_text(size = 14),       
+  axis.title.y = element_text(size = 14),       
+  axis.text = element_text(size = 14) ,         
+  legend.title = element_text(size = 14),  
+  legend.text = element_text(size = 12),
+  plot.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm")
+)
+plot_pop1
+```
+
+#########################################
+######Individual Trajectory #############
+#########################################
+
+## read original data
+```{r}
+original <- read.csv("demo.csv") 
+colnames(original)[colnames(original) == "Mice.Number"] <- "Code"
+original
+```
+## load Monolix results ##
+```{r}
+Est <- read.csv("IndividualParameters/estimatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
+Simulated <- read.csv("IndividualParameters/simulatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
+max(Simulated$rep) #See how many simulated parameters for each individual
+```
+## Function 
+```{r}
+Tmin <- 0
+Tmax <- 180 
+step_size <- 0.01
+times<-c(seq(Tmin,Tmax,step_size))
+n <- 100
+
+ind_fit_plt<-function(Est,Simulated, original){
+  
+  Fit <- list()
+  for(i in 1:nrow(Est)){
+    pars <- c(k1=Est$k1_mode[i],
+              k2=Est$k2_mode[i],
+              A0=Est$A0_mode[i],
+              C = Est$peak_mode[i])
+    fitted <- ode_ab_pop(pars)
+    d1 <- data.frame(Days=(times),y=(fitted$A))
+    Code <- Est$id[i]
+    
+    S <- 100 ###100 repeats
+    P <- matrix(NA,nrow=length(times),ncol=S)
+    
+    
+    for(j in 1:S){
+      pars <- c(k1=Simulated$k1[j+S*(i-1)],k2=Simulated$k2[j+S*(i-1)],A0=Simulated$A0[j+S*(i-1)],C=Simulated$peak[j+S*(i-1)])
+      out  <- ode_ab_pop(pars)
+      P[,j] <- out$A
+    }
+    
+    Min  <- apply(P,1,function(x){quantile(x,0.005)})
+    Max  <- apply(P,1,function(x){quantile(x,0.995)})
+    
+    fit <- cbind(d1,Min,Max,Code)
+    fit$Max[fit$Max> 100] <- 100
+    fit$Min[fit$Min> 100] <- 100
+    
+    Fit[[i]] <- data.frame(fit)
+  }
+  
+  ind_fit_unlist <- map_df(Fit, ~as.data.frame(.x))
+  unique_Vacc <- original[!duplicated(original$Code), c("Code", "Vaccine.Group")]
+  ind_fit <- merge(ind_fit_unlist, unique_Vacc, by="Code",all.x=TRUE) 
+  ind_fit$Code <- as.factor(ind_fit$Code)
+  ind_fit <- ind_fit[order(ind_fit$Code, ind_fit$Days), ]
+  return(ind_fit)
+}
+
+individual_fit <- ind_fit_plt(Est, Simulated, original)
+```
+######################################
+#### Supplementary Figure 3 ##########
+######################################
+
+```{r}
+plot_indfit <- ggplot(individual_fit, aes(x = Days)) +
+  # Add shaded area for Min/Max range
+  geom_ribbon(aes(ymin = Min, ymax = Max, fill = Vaccine.Group), alpha = 0.3) +
+  # Add the fit line
+  geom_line(aes(y = y, color = Vaccine.Group), size = 1, alpha = 0.8) +
+  # Add individual's point
+  geom_point(data = original, aes(x = Days, y = Antibody.Level, color = Vaccine.Group), 
+             shape = 16, size = 2, alpha = 2) +
+  # Separate plots for each individual
+  facet_wrap(~ as.factor(Code)) +
+  # Add labels and theme
+  labs(
+    #title = "Individual Fit with Shaded Uncertainty",
+     x = "days since first vaccination",
+       y = "anti-spike IgG (%binding)",
+    fill = "Vaccine Group",
+    color = "Vaccine Group"
+  ) +
+ theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='bottom',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  ) + theme(
+ # plot.title = element_text(size = 16),          # Title font size
+  axis.title.x = element_text(size = 12),        # X-axis label font size
+  axis.title.y = element_text(size = 12),        # Y-axis label font size
+  axis.text = element_text(size = 12) ,           # Axis tick labels font size
+  legend.title = element_text(size = 12),  # Legend title font size
+  legend.text = element_text(size = 10),
+  plot.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm")
+)
+
+plot_indfit
+```
+
+
+
+
