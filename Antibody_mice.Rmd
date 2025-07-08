@@ -182,9 +182,9 @@ close(pb)
 combine_pop <- map_df(Fit, ~as.data.frame(.x))
 
 ```
-############################
-##### Figure 4-A ###########
-############################
+#############################
+###### Figure 4-A ###########
+#############################
 
 ```{r}
 # Create the plot
@@ -221,24 +221,23 @@ plot_pop1 <- ggplot(combine_pop, aes(x = time, y = best_fit)) +
 plot_pop1
 ```
 
-#########################################
-######Individual Trajectory #############
-#########################################
+##########################################
+#######Individual Trajectory #############
+##########################################
 
 #read original data
-##read
 ```{r}
 original <- read.csv("demo.csv") 
 colnames(original)[colnames(original) == "Mice.Number"] <- "Code"
 original
 ```
-## load Monolix results ##
+####### load Monolix results ########
 ```{r}
 Est <- read.csv("IndividualParameters/estimatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
 Simulated <- read.csv("IndividualParameters/simulatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
 max(Simulated$rep) #See how many simulated parameters for each individual
 ```
-## Function 
+######## Function ########
 ```{r}
 Tmin <- 0
 Tmax <- 180 
