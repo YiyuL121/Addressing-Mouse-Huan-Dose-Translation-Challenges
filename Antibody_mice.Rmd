@@ -2,16 +2,35 @@
 ## Create Fig 4-A
 
 ```{r}
+# required packages
+required_packages <- c('dplyr', 'deSolve', 'ggplot2','purrr')
+
+install_and_load <- function(packages) {
+  for (pkg in packages) {
+    if (!require(pkg, character.only = TRUE)) {  
+      install.packages(pkg, dependencies = TRUE) 
+      library(pkg, character.only = TRUE)        
+    } else {
+      library(pkg, character.only = TRUE)        
+    }
+  }
+}
+
+install_and_load(required_packages)
+```
+```{r}
 ## Read parameters
 pop <- read.csv("populationParameters.txt",  row.names = 1)
 ```
-
+```{r}
 ## Set time range
 Tmin <- 0
 Tmax <- 180 
 step_size <- 0.005
 times<-c(seq(Tmin,Tmax,step_size))
+```
 
+```{r}
 ## ODE Function to model population antibody dynamics
 ode_ab_pop <- function(pars) {
   
@@ -45,7 +64,9 @@ ode_ab_pop <- function(pars) {
   out <- ode(y = y, parms = pars, times = times, func = derivs, k_t = k_t)
   as.data.frame(out)
 }
+```
 
+```{r}
 ## Sampling function to simulate the CI for population dynamics
 sample_ab <- function(pop, num, vac){
   
@@ -94,3 +115,4 @@ sample_ab <- function(pop, num, vac){
   }
   return(pars)
 }
+```
