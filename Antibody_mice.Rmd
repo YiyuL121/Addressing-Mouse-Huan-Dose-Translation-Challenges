@@ -182,9 +182,9 @@ close(pb)
 combine_pop <- map_df(Fit, ~as.data.frame(.x))
 
 ```
-#############################
-###### Figure 4-A ###########
-#############################
+##############################
+####### Figure 4-A ###########
+##############################
 
 ```{r}
 # Create the plot
@@ -221,9 +221,9 @@ plot_pop1 <- ggplot(combine_pop, aes(x = time, y = best_fit)) +
 plot_pop1
 ```
 
-##########################################
-#######Individual Trajectory #############
-##########################################
+###########################################
+########Individual Trajectory #############
+###########################################
 
 #read original data
 ```{r}
@@ -287,9 +287,9 @@ ind_fit_plt<-function(Est,Simulated, original){
 
 individual_fit <- ind_fit_plt(Est, Simulated, original)
 ```
-######################################
-#### Supplementary Figure 3 ##########
-######################################
+#########################################
+########Supplementary Figure 3 ##########
+#########################################
 
 ```{r}
 plot_indfit <- ggplot(individual_fit, aes(x = Days)) +
