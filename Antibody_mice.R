@@ -2,7 +2,16 @@
 ## Create Fig 4-A
 
 
-
+```{r}
+run_ODE_control <- function(pars){
+  total_AL <- matrix(NA,nrow=length(seq(Tmin,Tmax,step_size)),ncol=n)
+  for(i in 1:n){
+    out <- ode_ab_pop(pars[i, ])
+  total_AL[,i] <- out$A
+  }
+  return(total_AL)
+}
+```
 
 
 ## Read parameters
