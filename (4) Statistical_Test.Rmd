@@ -1,0 +1,150 @@
+###########################################################################################################################################
+################## This code perform t_test and Similarity test between mice parameters and human parameters ##############################
+###########################################################################################################################################
+```{r}
+library(ggpubr)
+library(TOSTER)
+```
+######## Load Parameters ##########
+
+```{r}
+human <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/Human model/Age_less_than60/log__r33/IndividualParameters/estimatedIndividualParameters.txt",  sep = ",", comment.char = "", header = T)
+human
+mice <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/1ug mice/all_run15/IndividualParameters/estimatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
+mice
+```
+
+
+```{r}
+human$group <- "human_30ug"
+human
+mice2 <- mice %>% mutate(
+ group= case_when(Vaccine_Group == "0.05ug Pfizer" ~ "mice_0.05ug",
+                  Vaccine_Group == "0.1ug Pfizer" ~ "mice_0.1ug",
+                  Vaccine_Group == "0.2ug Pfizer" ~ "mice_0.2ug",
+                  Vaccine_Group == "0.5ug Pfizer" ~ "mice_0.5ug",
+                  Vaccine_Group == "1ug Pfizer" ~ "mice_1ug")
+)
+mice2
+```
+
+```{r}
+combined_vac <- rbind(
+  human[, c("group", "k1_mode", "k2_mode","A0_mode", "peak_mode")],
+  mice2[, c("group", "k1_mode", "k2_mode","A0_mode","peak_mode")]
+)
+combined_vac
+```
+
+
+#############################
+#######S-Figure-7############
+#############################
+```{r}
+comparisons <- list(
+  c("human_30ug", "mice_0.05ug"),
+  c("human_30ug", "mice_0.1ug"),
+  c("human_30ug", "mice_0.2ug"),
+  c("human_30ug", "mice_0.5ug"),
+  c("human_30ug","mice_1ug")
+)
+```
+
+```{r}
+
+k1_plot <- ggplot(combined_vac, aes(x = group, y = k1_mode, fill = group)) +
+   geom_boxplot(width = 0.6, outlier.shape = NA, color = "black") +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+  stat_compare_means(comparisons = comparisons, method = "t.test", 
+                     label = c("p.signif")) +  # or label = "p.format"
+  theme_minimal() +
+  labs(x = NULL, y = "Decay Rate k2") +
+  theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='none',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+theme(
+ # plot.title = element_text(size = 16),          # Title font size
+  axis.title.x = element_text(size = 10),        # X-axis label font size
+  axis.title.y = element_text(size = 12),        # Y-axis label font size
+  axis.text = element_text(size = 12) ,           # Axis tick labels font size
+  plot.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"))
+
+k1_plot
+```
+
+```{r}
+k2_plot <- ggplot(combined_vac, aes(x = group, y = k2_mode, fill = group)) +
+   geom_boxplot(width = 0.6, outlier.shape = NA, color = "black") +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+  stat_compare_means(comparisons = comparisons, method = "t.test", 
+                     label = c("p.signif")) +  # or label = "p.format"
+  theme_minimal() +
+  labs(x = NULL, y = "Decay Rate k2") +
+  theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='none',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+theme(
+ # plot.title = element_text(size = 16),          # Title font size
+  axis.title.x = element_text(size = 10),        # X-axis label font size
+  axis.title.y = element_text(size = 12),        # Y-axis label font size
+  axis.text = element_text(size = 12) ,           # Axis tick labels font size
+  plot.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"))
+
+k2_plot
+```
+
+
+################################################################################
+#######Examine the Similarity between 0.05ug/1ug mice and human response ###########
+################################################################################
+
+
+######## 0.05ug in mice versus human response #############
+```{r}
+k2_compare <- combined_vac %>% filter(group %in% c("human_30ug", "mice_0.05ug"))
+
+# Convert to numeric vectors
+value_a <- k2_compare$k2_mode[k2_compare$group == "human_30ug"]
+value_b <- k2_compare$k2_mode[k2_compare$group == "mice_0.05ug"]
+
+
+boundary <- 2*sd(value_b-mean(value_a))
+
+tsum_TOST(m1 = mean(value_a), m2 = mean(value_b),
+            sd1 = sd(value_a), sd2 = sd(value_b),
+            n1 = length(value_a), n2 = length(value_b),
+            low_eqbound = -boundary, high_eqbound = boundary,
+            alpha = 0.05)
+```
+
+######## 1ug in mice versus human response #############
+```{r}
+k2_compare <- combined_vac %>% filter(group %in% c("human_30ug", "mice_1ug"))
+
+# Convert to numeric vectors
+value_a <- k2_compare$k2_mode[k2_compare$group == "human_30ug"]
+value_b <- k2_compare$k2_mode[k2_compare$group == "mice_1ug"]
+
+
+boundary <- 2*sd(value_b-mean(value_a))
+
+tsum_TOST(m1 = mean(value_a), m2 = mean(value_b),
+            sd1 = sd(value_a), sd2 = sd(value_b),
+            n1 = length(value_a), n2 = length(value_b),
+            low_eqbound = -boundary, high_eqbound = boundary,
+            alpha = 0.05)
+```
