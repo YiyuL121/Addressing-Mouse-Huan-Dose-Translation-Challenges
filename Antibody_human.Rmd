@@ -1,4 +1,4 @@
-## Antibody Modelling Function for mice
+## Antibody Modelling Function for human (179 Individuals)
 ## Create S-Fig-4
 
 
