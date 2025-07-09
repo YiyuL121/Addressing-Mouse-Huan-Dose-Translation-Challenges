@@ -1,0 +1,483 @@
+############################################################################################################
+############## Mice antibody model paramter (growth rate, decay rate) associated with dose amount ##########
+############################################################################################################
+
+############# S-Fig-2 ###############
+############# Fig-4-B ###############
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(deSolve)
+library(patchwork)
+library(stringr)
+```
+#############################################
+########### Load Mice parameter #############
+#############################################
+
+```{r}
+pop_data <- read.csv("populationParameters.txt",  row.names = 1)
+
+# Extract k1 and k2 base population values
+k1_pop <- pop_data["k1_pop", "value"]
+k2_pop <- pop_data["k2_pop", "value"]
+
+# Extract covariates for k1 and k2
+beta_k1 <- pop_data[grep("^beta_k1", rownames(pop_data)), ]
+beta_k2 <- pop_data[grep("^beta_k2", rownames(pop_data)), ]
+
+# Calculate k1 for each dose group
+k1_values <- data.frame(
+  Dose_Group = c('0_05ug_Pfizer', gsub("beta_k1_Vaccine_Group_", "", rownames(beta_k1))),
+  k1 = c(k1_pop, exp(log(k1_pop) + beta_k1$value))
+)
+
+# Calculate k2 for each dose group
+k2_values <- data.frame(
+  Dose_Group = c('0_05ug_Pfizer',gsub("beta_k2_Vaccine_Group_", "", rownames(beta_k2))),
+  k2 = c(k2_pop, exp(log(k2_pop) + beta_k2$value))
+)
+
+# Combine k1 and k2 results
+result <- merge(k1_values, k2_values, by = "Dose_Group", all = TRUE)
+
+# Print the result
+print(result)
+```
+
+```{r}
+# Create the 'dose' column by extracting the numeric dose from 'Vaccine.Group'
+result <- result %>%
+  mutate(dose = as.numeric(str_extract(str_replace(Dose_Group, "_", "."), "\\d+\\.?\\d*")))
+result
+```
+
+###############################################################
+############## TRY DIFFERENT REGRESSION ########################
+###############################################################
+
+
+##########Decay Rate K2###############
+
+
+#R^2 function #
+```{r}
+r2_k2 <- function(model, data) {
+  k2 <- data$k2
+  y_pred <- predict(model, newdata = data)
+  ss_total <- sum((k2 - mean(k2))^2)
+  ss_residual <- sum((k2 - y_pred)^2)
+  return(1 - (ss_residual / ss_total))
+}
+```
+```{r}
+exp_model <- nls(k2 ~ a*exp(-b*dose),data = result,start = list(a = 1, b = 1))
+powerlaw_model <- nls(k2 ~  a * dose^(-b)  ,data = result, start = list(a = 1, b = 1))
+linear_k2 <- lm(k2 ~ dose, data = result)
+log_model_k2 <- nls(k2 ~ -(log(a*dose+b)),data = result,start = list(a =1, b =0.01))
+
+# Model summary
+summary(exp_model)
+summary(powerlaw_model)
+summary(linear_k2)
+summary(log_model_k2)
+print(paste("AIC linear model:",AIC(linear_k2)))
+print(paste("AIC exp model:",AIC(exp_model)))
+print(paste("AIC powerlaw model:",AIC(powerlaw_model)))
+print(paste("AIC log model:",AIC(log_model_k2)))
+
+print(paste("R^2 of exp model",r2_k2(exp_model, result)))
+print(paste("R^2 of powerlaw model",r2_k2(powerlaw_model, result)))
+print(paste("R^2 of linear model",r2_k2(linear_k2, result)))
+print(paste("R^2 of logarithm model",r2_k2(log_model_k2, result)))
+```
+
+
+##########Growth Rate K1###############
+```{r}
+#R^2 Function
+r2_k1 <- function(model, data) {
+  k1 <- data$k1
+  y_pred <- predict(model, newdata = data)
+  ss_total <- sum((k1 - mean(k1))^2)
+  ss_residual <- sum((k1 - y_pred)^2)
+  return(1 - (ss_residual / ss_total))
+}
+
+
+exp_model_k1 <- nls(k1 ~ a*exp(-b*dose),data = result,start = list(a = 1, b = 1))
+linear_k1 <- lm(k1 ~ dose, data = result)
+powerlaw_model_k1 <- nls(k1 ~  a * dose^(-b)  ,data = result, start = list(a = 1, b = 1))
+log_model_k1 <- nls(k1 ~ (log(a*dose-b)),data = result,start = list(a =1, b =0.01),trace = TRUE)
+
+summary(exp_model_k1)
+summary(linear_k1)
+summary(powerlaw_model_k1)
+summary(log_model_k1)
+
+
+print(paste("AIC linear model:",AIC(linear_k1)))
+print(paste("AIC exp model:",AIC(exp_model_k1)))
+print(paste("AIC powerlaw model:",AIC(powerlaw_model_k1)))
+print(paste("AIC log model:",AIC(log_model_k1)))
+
+print(paste("R^2 of exp model",r2_k1(exp_model_k1, result)))
+print(paste("R^2 of powerlaw model",r2_k1(powerlaw_model_k1, result)))
+print(paste("R^2 of linear model",r2_k1(linear_k1, result)))
+print(paste("R^2 of logarithm model",r2_k1(log_model_k1, result)))
+```
+####################################################
+############k1-dose:log; k2-dose:powerlaw###########
+####################################################
+
+#####################################
+############ Plot S-Fig-2############
+#####################################
+
+########## S-Fig-2-A #########
+```{r}
+# Calculate the CI for any regression, knowing the estimation and s.e.
+# log regression for k1
+set.seed(123)
+
+# Parameters from the regression
+a_est <- 0.36989    
+a_se <- 0.02605
+b_est <- 1.46569
+b_se <- 0.01186
+
+# Number of simulations to calculate CI
+n_sim <- 10000
+
+# Simulate parameter values from normal distributions
+a_sim <- rnorm(n_sim, mean = a_est, sd = a_se)
+b_sim <- rnorm(n_sim, mean = b_est, sd = b_se)
+
+# Dose range
+dose <- seq(0.001, 1.2, by = 0.001)
+
+# Matrix to store predictions
+k1_sim <- matrix(NA, nrow = n_sim, ncol = length(dose))
+
+# Calculate k1 for each simulated parameter pair across dose range
+for (i in 1:n_sim) {
+  k1_sim[i, ] <- log(a_sim[i] * dose+ b_sim[i])
+}
+
+# Calculate 95% CI (2.5th and 97.5th percentiles) for each dose
+ci_lower <- apply(k1_sim, 2, quantile, probs = 0.025) # 2 means apply on rows, this k2_sims has row number < no.simmulation, col number < no.dose range
+ci_upper <- apply(k1_sim, 2, quantile, probs = 0.975)
+k1_pred <- log(a_est * dose + b_est)  # Point estimate
+
+# Combine results into a data frame
+results <- data.frame(dose = dose, k1_pred = k1_pred, ci_lower = ci_lower, ci_upper = ci_upper)
+
+#####################################################
+head(results)
+
+```
+
+```{r}
+plot1 <- ggplot(data = results, aes(x = dose)) +
+  
+  geom_line(aes(y = k1_pred, color = 'Fitted Line (powerlaw)'), size = 2) +
+  
+  geom_point(data = result, aes(x = dose, y = k1, color = 'Original Data'), size = 3) +
+  
+  geom_ribbon(data = results, aes(x = dose, ymin = ci_lower, ymax = ci_upper, color = '95% Confidence Interval'), alpha = 0.4, fill = "pink") +
+  labs(color = 'Legend', 
+       size = 'Point Size',
+        x = 'Dose',
+       y = ' k1') +
+  
+  scale_color_manual(values = c('Original Data' = 'red', 'Fitted Line (powerlaw)' = 'grey', '95% Confidence Interval' = 'pink')) +
+
+   theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='none',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+
+  theme(
+  axis.title.x = element_text(size = 14),        # X-axis label font size
+  axis.title.y = element_text(size = 14),        # Y-axis label font size
+  axis.text = element_text(size = 14) ,           # Axis tick labels font size
+  plot.margin = margin(t = 1, r = 1, b = 1, l = 1, unit = "cm")
+)
+plot1
+```
+########## S-Fig-2-B #########
+
+```{r}
+# Calculate the CI for any regression, knowing the estimation and s.e.
+# power law 
+set.seed(123)
+
+# Parameters from the regression
+a_est <- 2.858e-04
+a_se <- 9.654e-05
+b_est <- 1.094
+b_se <- 1.190e-01
+
+# Number of simulations to calculate CI
+n_sim <- 10000
+
+# Simulate parameter values from normal distributions
+a_sim <- rnorm(n_sim, mean = a_est, sd = a_se)
+b_sim <- rnorm(n_sim, mean = b_est, sd = b_se)
+
+# Dose range
+dose <- seq(0.001, 1.2, by = 0.001)
+
+# Matrix to store predictions
+k2_sim <- matrix(NA, nrow = n_sim, ncol = length(dose))
+
+# Calculate k2 for each simulated parameter pair across dose range
+for (i in 1:n_sim) {
+  k2_sim[i, ] <- a_sim[i] * dose^(-b_sim[i])
+}
+
+# Calculate 95% CI (2.5th and 97.5th percentiles) for each dose
+ci_lower <- apply(k2_sim, 2, quantile, probs = 0.025) # 2 means apply on rows, this k2_sims has row number < no.simmulation, col number < no.dose range
+ci_upper <- apply(k2_sim, 2, quantile, probs = 0.975)
+k2_pred <- a_est * dose^(-b_est)  # Point estimate
+
+# Combine results into a data frame
+results <- data.frame(dose = dose, k2_pred = k2_pred, ci_lower = ci_lower, ci_upper = ci_upper)
+
+#####################################################
+head(results)
+```
+```{r}
+plot2 <- ggplot(data = results, aes(x = dose)) +
+  
+  # Geom line with customized legend label
+  geom_line(aes(y = k2_pred, color = 'Fitted Line (powerlaw)'), size = 2) +
+  
+  # Geom points with customized legend label and fixed size
+  geom_point(data = result, aes(x = dose, y = k2, color = 'Original Data'), size = 3) +
+  
+  geom_ribbon(data = results, aes(x = dose, ymin = ci_lower, ymax = ci_upper, color = '95% Confidence Interval'), alpha = 0.4, fill = "pink") +
+  # Add title and customize the legends for color and size
+  labs(#title = 'Decay Rate k2 versus Dose (powerlaw)', 
+       color = 'Legend', 
+        x = 'Dose (μg)',
+       y = ' k2') +
+  
+  # Customize color legend manually
+  scale_color_manual(values = c('Original Data' = 'red', 'Fitted Line (powerlaw)' = 'grey', '95% Confidence Interval' = 'pink')) +
+
+   theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position='none',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+
+  coord_cartesian(ylim = c(0, 0.02)) + theme(
+ # plot.title = element_text(size = 16),          # Title font size
+  axis.title.x = element_text(size = 14),        # X-axis label font size
+  axis.title.y = element_text(size = 14),        # Y-axis label font size
+  axis.text = element_text(size = 14) ,           # Axis tick labels font size
+  plot.margin = margin(t = 1, r = 1, b = 1, l = 1, unit = "cm")
+)
+  
+plot2
+```
+####################################################################################################
+####################################################################################################
+
+######## Extrapolate k1 and k2 ##############
+
+```{r}
+new_doses <- data.frame(dose = seq(0.001, 1, by = 0.001))
+head(new_doses)
+
+predictions <- predict(log_model_k1, newdata = new_doses)
+new_doses$k1 <- predictions
+predictions2 <- predict(powerlaw_model, newdata = new_doses)
+new_doses$k2 <- predictions2
+
+new_doses_clean <- new_doses %>%
+  dplyr::select(dose, k2, k1) 
+new_doses_clean
+#write.csv(new_doses_clean,"full_mice_dose_pars.csv", row.names = FALSE)
+```
+```{r}
+target_doses <- seq(0.050, 1, by = 0.050)
+
+# Filter the rows where the dose matches the target doses
+filtered_doses <- new_doses %>%
+  filter(round(dose, 3) %in% round(target_doses, 3)) %>%
+  dplyr::select(dose, k1, k2) %>%
+
+# View the filtered data
+print(filtered_doses)
+```
+
+########## Allometric Scaling ################
+```{r}
+human_dose <- data.frame(dose = seq(5, 100, by = 5),
+                         dose_mice = seq(0.05,1,by =0.05),
+                         
+                         k1 = NA,
+                         k2 = NA)
+human_dose
+```
+
+#######Human Parameter: dose = 30ug #######
+```{r}
+human_result <- read.csv("populationParameters.txt", row.names = 1)
+k1_pop_human <- human_result["k1_pop", ]
+k2_pop_human <- human_result["k2_pop", ]
+human_parameter <- data.frame(dose = 30,
+                              k1=k1_pop_human$value,
+                              k2=k2_pop_human$value,
+                              k1_lwr =k1_pop_human$P2.5_sa,
+                              k1_upr =k1_pop_human$P97.5_sa,
+                              k2_lwr =k2_pop_human$P2.5_sa,
+                              k2_upr =k2_pop_human$P97.5_sa)
+human_parameter
+```
+######Perform the scaling with SF=100###############
+
+```{r}
+scaling_result <- allometric_scaling(filtered_doses, 100, human_parameter)
+scaling_result
+```
+```{r}
+dose_dependent <- scaling_result
+pop <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/Human model/Age_less_than60/log__r33/populationParameters.txt", row.names = 1)
+c = pop["peak_pop", "value"]
+c
+```
+
+
+#####Recall the ODE function for human trajectory#######
+```{r}
+ode_ab_pop <- function(pars) {
+  
+  k1 <- as.numeric(pars[1]) # Growth rate in phase 1
+  k2 <- as.numeric(pars[2]) # Decay rate in phase 2
+  A0 <- as.numeric(pars[3]) # Initial condition
+  C <- as.numeric(pars[4])  # Carrying capacity for sigmoid growth phase
+  
+  times <- c(seq(Tmin, Tmax, step_size))
+  
+  k_time <- data.frame(times = times, k = rep(0, length(times)))
+  k_time <- k_time %>% mutate(k = case_when(times <= 35 ~ k1, 
+                                            times > 35 ~ -k2))
+  
+  k_t <- approxfun(k_time$times, k_time$k, rule = 2)
+  
+  derivs <- function(times, y, pars, k_t) {
+    with(as.list(c(pars, y)), {
+      k <- k_t(times)   # Get k value based on time
+      if (times < 35) {
+        dA <- k * A * (1 - A / C) # Sigmoid growth phase
+      } else {
+        dA <- k * A # Exponential decay phase
+      }
+      return(list(c(dA)))
+    })
+  }
+  
+  y <- c(A = A0) # Initial observation
+  
+  out <- ode(y = y, parms = pars, times = times, func = derivs, k_t = k_t)
+  as.data.frame(out)
+}
+```
+
+########Run ODE for extrapolated Parameters############
+```{r}
+human_doses <- seq(10, 100, 5)
+times <- seq(0,180,0.01)
+Tmin <- 0
+Tmax <- 180 
+step_size <- 0.001
+times<-c(seq(Tmin,Tmax,step_size))
+Fit <- list()
+
+final_df <- data.frame(Days = numeric(0), y = numeric(0), dose = numeric(0))
+# Loop through each dose in human_doses
+for (i in round(seq_along(human_doses)) ){
+  
+   dose <- human_doses[i]
+  # Match the corresponding mice dose (divide by 100)
+  mice_dose <- dose / 100
+  
+  # Extract k1 and k2 values for this dose
+  par <- c(
+    k1 = dose_dependent[round(dose_dependent$dose_human) == dose, "k1_human"],
+    k2 = dose_dependent[round(dose_dependent$dose_human) == dose, "k2_human"],
+    A0 = pop["A0_pop", "value"],
+    C  = pop["peak_pop", "value"]
+  )
+  
+  best_fit <- ode_ab_pop(par)
+  
+  # Create a dataframe for this dose with Days, y, and the current dose
+  d1 <- data.frame(Days = times, y = best_fit$A, dose = rep(dose, length(times)))
+  final_df <- rbind(final_df, d1)
+}
+final_df
+```
+
+#########################################
+#####Figure4-B###########################
+#########################################
+```{r}
+# Filter data
+filtered_data <- final_df %>%
+  filter(dose %in% seq(10, 100, by = 5))
+ 
+original_data <- final_df %>%
+  filter(dose == 30)  # Original data for dose = 30
+
+dose_colors <- scales::seq_gradient_pal("lightblue", "darkblue", "Lab")(seq(0, 1, length.out = 19))
+names(dose_colors) <- as.character(c(seq(10, 25, by = 5),seq(35,100,5)))  # Assign dose values as names
+all_colors <- c(dose_colors, "Original Data (30ug)" = "red")
+
+plot_huaman_dose = ggplot() +
+  geom_line(data = filtered_data, aes(x = Days, y = y, group = dose, color = as.factor(dose)),size = 0.8
+            ) +
+  # Original data in red
+  geom_line(data = original_data, aes(x = Days, y = y, color = "Original Data (30ug)"), linewidth = 1.5) +
+  # Apply the custom color scale
+  scale_color_manual(name = "Dose (ug)", values = all_colors) +
+  labs(
+   # title = "Predicted Human Anti-Spike IgG Trajectories Across Doses Using Allometric Scaling",
+       x = "days since first vaccination",
+       y = "anti-spike IgG (%binding)") +
+ theme(axis.text = element_text(colour = "black"),
+        axis.ticks = element_line(colour = "black"),
+        axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        #legend.position='none',
+        axis.title.y = element_text(size=11,family="sans"),
+        axis.title.x = element_text(size=11,family="sans"),
+  theme_minimal() 
+  )+theme(
+ # plot.title = element_text(size = 16),          # Title font size
+  axis.title.x = element_text(size = 14),        # X-axis label font size
+  axis.title.y = element_text(size = 14),        # Y-axis label font size
+  axis.text = element_text(size = 14) ,           # Axis tick labels font size
+  plot.margin = margin(t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"))
+plot_huaman_dose
+```
+
+
+
