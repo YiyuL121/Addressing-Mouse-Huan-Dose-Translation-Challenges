@@ -1,5 +1,5 @@
 ## Antibody Modelling Function for mice
-## Create Fig 4-A
+## Create Fig 4-A, S-Fig-3
 
 
 ######### required packages ############
