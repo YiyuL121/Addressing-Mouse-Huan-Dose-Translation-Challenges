@@ -22,7 +22,7 @@ install_and_load(required_packages)
 
 ########### read parameter ############
 ```{r}
-pop <- read.csv("populationParameters.txt",  row.names = 1)
+pop <- read.csv("populationParameters_mice.txt",  row.names = 1)
 ```
 
 ######## Set time range ###########
@@ -227,14 +227,14 @@ plot_pop1
 
 #read original data
 ```{r}
-original <- read.csv("demo.csv") 
+original <- read.csv("demo_data_mice.csv") 
 colnames(original)[colnames(original) == "Mice.Number"] <- "Code"
 original
 ```
 ####### load Monolix results ########
 ```{r}
-Est <- read.csv("IndividualParameters/estimatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
-Simulated <- read.csv("IndividualParameters/simulatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
+Est <- read.csv("estimatedIndividualParameters_mice.txt", sep = ",", comment.char = "", header = T)
+Simulated <- read.csv("simulatedIndividualParameters_mice.txt", sep = ",", comment.char = "", header = T)
 max(Simulated$rep) #See how many simulated parameters for each individual
 ```
 ######## Function ########
