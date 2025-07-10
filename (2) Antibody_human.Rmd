@@ -20,11 +20,6 @@ install_and_load <- function(packages) {
 install_and_load(required_packages)
 ```
 
-########### read parameter ############
-```{r}
-pop <- read.csv("populationParameters.txt",  row.names = 1)
-```
-
 ######## Set time range ###########
 ```{r}
 Tmin <- 0
@@ -33,111 +28,11 @@ step_size <- 0.005
 times<-c(seq(Tmin,Tmax,step_size))
 ```
 
-
-
-######### Simulate population trajectory ############
-```{r}
-ode_ab_pop <- function(pars) {
-  
-  k1 <- as.numeric(pars[1]) # Growth rate in phase 1
-  k2 <- as.numeric(pars[2]) # Decay rate in phase 2
-  A0 <- as.numeric(pars[3]) # Initial condition
-  C <- as.numeric(pars[4])  # Carrying capacity for sigmoid growth phase
-  
-  times <- c(seq(Tmin, Tmax, step_size))
-  
-  k_time <- data.frame(times = times, k = rep(0, length(times)))
-  k_time <- k_time %>% mutate(k = case_when(times <= 35 ~ k1, 
-                                            times > 35 ~ -k2))
-  
-  k_t <- approxfun(k_time$times, k_time$k, rule = 2)
-  
-  derivs <- function(times, y, pars, k_t) {
-    with(as.list(c(pars, y)), {
-      k <- k_t(times)   # Get k value based on time
-      if (times < 35) {
-        dA <- k * A * (1 - A / C) # Sigmoid growth phase
-      } else {
-        dA <- k * A # Exponential decay phase
-      }
-      return(list(c(dA)))
-    })
-  }
-  
-  y <- c(A = A0) # Initial observation
-  
-  out <- ode(y = y, parms = pars, times = times, func = derivs, k_t = k_t)
-  as.data.frame(out)
-}
-```
-
-```{r}
-## Sampling function to simulate the CI for population dynamics
-sample_ab <- function(pop, num){
-  
-  inds_mean <- which(rownames(pop) %in% c("k1_pop","k2_pop","A0_pop", 'peak_pop')) #row number of parameters
-  inds_sd <- which(rownames(pop) %in% c("omega_k1","omega_k2","omega_A0", "omega_peak"))
-
-  pars <- matrix(0, num+1, length(inds_mean))
-  
-  for (i in 1:length(inds_mean)) {
-    mean_par <- pop$value[inds_mean[i]]
-    sd_par <- pop$value[inds_sd[i]]
-    #sd_par <- pop$se_sa[inds_mean[i]] ####standard error of population parameter
-    
-    if (i==1) {
-      
-      log_k1 = log(mean_par)
-      pars[1:num, i] <- exp(rnorm(num, mean = log_k1, sd=sd_par))
-      pars[num+1, i] <- exp(log_k1)
-    } 
-    
-    else if (i==2 ) {
-
-      log_k2 = log(mean_par)
-      pars[1:num, i] <- exp(rnorm(num, mean = log_k2, sd=sd_par))
-      pars[num+1, i] <- exp(log_k2)
-    } 
-    
-    
-    else if (i==3) {
-      
-      log_A0 = log(mean_par)
-      pars[1:num, i] <- exp(rnorm(num, mean=log_A0, sd=sd_par))
-      pars[num+1, i] <- exp(log_A0)
-    }
-    
-    else if (i==4 ) {
-      
-      log_C = log(mean_par)
-      pars[1:num, i] <- exp(rnorm(num, mean=log_C, sd=sd_par))
-      pars[num+1, i] <- exp(log_C)
-    } 
-  }
-  return(pars)
-}
-```
-
-############# Function to store output in column form ##############
-```{r}
-run_ODE_control <- function(pars){
-  total_AL <- matrix(NA,nrow=length(seq(Tmin,Tmax,step_size)),ncol=n)
-  for(i in 1:n){
-    out <- ode_ab_pop(pars[i, ])
-  total_AL[,i] <- out$A
-  }
-  return(total_AL)
-}
-```
-
-
-
-
 #######Read individual data#########
 ```{r}
 original <- read.csv("demo.csv") 
-Est <- read.csv("IndividualParameters/estimatedIndividualParameters.txt",  sep = ",", comment.char = "", header = T)
-Simulated <- read.csv("IndividualParameters/simulatedIndividualParameters.txt" ,sep = ",", comment.char = "", header = T)
+Est <- read.csv("estimatedIndividualParameters_human.txt",  sep = ",", comment.char = "", header = T)
+Simulated <- read.csv("simulatedIndividualParameters_human.txt" ,sep = ",", comment.char = "", header = T)
 max(Simulated$rep) #See how many simulated parameters for each individual
 ```
 #######Individual plot function ########
