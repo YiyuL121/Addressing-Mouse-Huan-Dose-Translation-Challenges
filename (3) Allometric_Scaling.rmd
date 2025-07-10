@@ -17,7 +17,7 @@ library(stringr)
 #############################################
 
 ```{r}
-pop_data <- read.csv("populationParameters.txt",  row.names = 1)
+pop_data <- read.csv("populationParameters_mice.txt",  row.names = 1)
 
 # Extract k1 and k2 base population values
 k1_pop <- pop_data["k1_pop", "value"]
@@ -337,7 +337,7 @@ human_dose
 
 #######Human Parameter: dose = 30ug #######
 ```{r}
-human_result <- read.csv("populationParameters.txt", row.names = 1)
+human_result <- read.csv("populationParameters_human.txt", row.names = 1)
 k1_pop_human <- human_result["k1_pop", ]
 k2_pop_human <- human_result["k2_pop", ]
 human_parameter <- data.frame(dose = 30,
@@ -357,7 +357,7 @@ scaling_result
 ```
 ```{r}
 dose_dependent <- scaling_result
-pop <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/Human model/Age_less_than60/log__r33/populationParameters.txt", row.names = 1)
+pop <- read.csv("populationParameters_human.txt", row.names = 1)
 c = pop["peak_pop", "value"]
 c
 ```
