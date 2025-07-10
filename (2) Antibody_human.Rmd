@@ -30,7 +30,7 @@ times<-c(seq(Tmin,Tmax,step_size))
 
 #######Read individual data#########
 ```{r}
-original <- read.csv("demo.csv") 
+original <- read.csv("demo_data_human.csv") 
 Est <- read.csv("estimatedIndividualParameters_human.txt",  sep = ",", comment.char = "", header = T)
 Simulated <- read.csv("simulatedIndividualParameters_human.txt" ,sep = ",", comment.char = "", header = T)
 max(Simulated$rep) #See how many simulated parameters for each individual
