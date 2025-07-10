@@ -11,9 +11,9 @@ library(TOSTER)
 ######## Load Parameters ##########
 
 ```{r}
-human <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/Human model/Age_less_than60/log__r33/IndividualParameters/estimatedIndividualParameters.txt",  sep = ",", comment.char = "", header = T)
+human <- read.csv("estimatedIndividualParameters_human.txt",  sep = ",", comment.char = "", header = T)
 human
-mice <- read.csv("C:/Users/YIYU.LIAO/OneDrive - Nanyang Technological University/Desktop/Determine Vacc dose/1ug mice/all_run15/IndividualParameters/estimatedIndividualParameters.txt", sep = ",", comment.char = "", header = T)
+mice <- read.csv("estimatedIndividualParameters_mice.txt", sep = ",", comment.char = "", header = T)
 mice
 ```
 
